@@ -1,14 +1,20 @@
 import java.io.Console;
 import java.io.IOException;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 class Main {
 
+    private static final Pattern PUT_PATTERN = Pattern.compile("^PUT \"([^\"]*)\" \"([^\"]*)\"$");
+    private static final Pattern GET_PATTERN = Pattern.compile("^GET \"([^\"]*)\"$");
+    private static final Pattern DELETE_PATTERN = Pattern.compile("^DELETE \"([^\"]*)\"$");
+
+    // TODO: support growing pages, and flushing pages from cache.
+
     public static void main(String[] args) throws IOException {
         MyDB db = new MyDB();
-        db.loadFromFile();
-        runSimpleBenchmark(db, 10000);
-//        runUserLoop(db);
+//        runSimpleBenchmark(db, 100);
+        runUserLoop(db);
     }
 
     private static void runSimpleBenchmark(MyDB db, int size) throws IOException {
@@ -30,11 +36,6 @@ class Main {
         }
         t2 = System.currentTimeMillis();
         System.out.println("Read: " + (t2 - t1) + "ms");
-
-        t1 = System.currentTimeMillis();
-        db.loadFromFile();
-        t2 = System.currentTimeMillis();
-        System.out.println("Load: " + (t2 - t1) + "ms");
     }
 
     private static void runUserLoop(MyDB db) throws IOException {
@@ -42,7 +43,7 @@ class Main {
 
         while (true) {
             String line = c.readLine(">> ");
-            Matcher pm = MyDB.PUT_PATTERN.matcher(line);
+            Matcher pm = PUT_PATTERN.matcher(line);
             boolean found = false;
             if (pm.find()) {
                 String key = pm.group(1);
@@ -50,10 +51,16 @@ class Main {
                 db.put(key, value);
                 found = true;
             }
-            Matcher gm = MyDB.GET_PATTERN.matcher(line);
+            Matcher gm = GET_PATTERN.matcher(line);
             if (!found && gm.find()) {
                 String key = gm.group(1);
                 c.printf(db.get(key) + "\n");
+                found = true;
+            }
+            Matcher dm = DELETE_PATTERN.matcher(line);
+            if (!found && dm.find()) {
+                String key = dm.group(1);
+                db.delete(key);
                 found = true;
             }
             if (!found) {

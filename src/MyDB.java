@@ -1,58 +1,54 @@
-import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import static java.nio.file.StandardOpenOption.APPEND;
-import static java.nio.file.StandardOpenOption.CREATE;
+import java.util.Arrays;
 
 class MyDB {
     
-    private final Map<String, String> map;
-    public static final Pattern PUT_PATTERN = Pattern.compile("^PUT \"([^\"]*)\" \"([^\"]*)\"$");
-    public static final Pattern GET_PATTERN = Pattern.compile("^GET \"([^\"]*)\"$");
-    private final Path path;
     private OutputStream out;
-    
-    public void loadFromFile() throws IOException {
-        String file = new String(Files.readAllBytes(path));
-        String[] lines = file.split("\n");
-        for (String line : lines) {
-            Matcher pm = PUT_PATTERN.matcher(line);
-            if (pm.find()) {
-                String key = pm.group(1);
-                String value = pm.group(2);
-                map.put(key, value);
-            }
-        }
-        out = new BufferedOutputStream(Files.newOutputStream(path, CREATE, APPEND));
-    }
-    
+    private final Page[] pages;
+    private static final int PAGE_COUNT = 4;
+    public static final int PAGE_SIZE = 1024;
+    private final RandomAccessFile file;
+
     public MyDB() throws IOException {
-        map = new HashMap<>();
-        path = Paths.get("../my.db");
+        Path path = Path.of("../my.db");
+        file = new RandomAccessFile(path.toString(), "rw");
+        if (!Files.exists(path)) initialize();
+        pages = new Page[PAGE_COUNT];
+        Arrays.fill(pages, null);
+    }
+
+    private void initialize() throws IOException {
+        byte[] bytes = new byte[PAGE_COUNT * PAGE_SIZE];
+        Arrays.fill(bytes, (byte)0);
+        file.write(bytes);
+    }
+
+    private Page getPage(String key) throws IOException {
+        int n = key.hashCode() % PAGE_COUNT;
+        if (pages[n] == null) {
+            pages[n] = new Page(file, n);
+        }
+        return pages[n];
     }
 
     public void put(String key, String value) throws IOException {
-        map.put(key, value);
-        out.write(String.format("PUT \"%s\" \"%s\"\n", key, value).getBytes());
-        out.flush();
+        getPage(key).put(key, value);
     }
 
-    public String get(String key) {
-        return map.get(key);
+    public String get(String key) throws IOException {
+        return getPage(key).get(key);
+    }
+
+    public void delete(String key) throws IOException {
+        getPage(key).delete(key);
     }
 
     public void drop() throws IOException {
-        out.close();
-        Files.delete(path);
-        out = new BufferedOutputStream(Files.newOutputStream(path, CREATE, APPEND));
+        initialize();
     }
 
 }
