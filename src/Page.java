@@ -13,12 +13,17 @@ class Page {
     private final int pageNumber;
     private final Map<String, String> values;
     private final byte[] bytes = new byte[MyDB.PAGE_SIZE];
+    private int length;
 
     Page(RandomAccessFile f, int n) throws IOException {
+        this(f, n, true);
+    }
+
+    Page(RandomAccessFile f, int n, boolean autoRead) throws IOException {
         file = f;
         pageNumber = n;
         values = new HashMap<>();
-        readValues();
+        if (autoRead) readValues();
     }
 
     public void put(String key, String value) throws IOException {
@@ -30,23 +35,29 @@ class Page {
         return values.get(key);
     }
 
+    public Map<String, String> getValues() {
+        return values;
+    }
+
     private void readValues() throws IOException {
         byte[] bytes = new byte[MyDB.PAGE_SIZE];
         file.seek((long) MyDB.PAGE_SIZE * pageNumber);
         file.read(bytes);
         String string = new String(bytes);
         String[] lines = string.split("\n");
+        length = lines.length;
         for (String line : lines) {
             Matcher pm = KEY_VALUE_PATTERN.matcher(line);
             if (pm.find()) {
                 String key = pm.group(1);
                 String value = pm.group(2);
                 values.put(key, value);
+                length += line.length();
             }
         }
     }
 
-    private void writeValues() throws IOException {
+    public void writeValues() throws IOException {
         int i = 0;
         for (String key : values.keySet()) {
             byte[] lineBytes = String.format("\"%s\" \"%s\"\n", key, values.get(key)).getBytes();
@@ -66,5 +77,9 @@ class Page {
     public void delete(String key) throws IOException {
         values.remove(key);
         writeValues();
+    }
+
+    public boolean canPut(String key, String value) {
+        return length + key.length() + value.length() + 6 <= MyDB.PAGE_SIZE;
     }
 }

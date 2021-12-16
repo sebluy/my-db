@@ -11,28 +11,47 @@ class Main {
 
     // TODO: support growing pages, and flushing pages from cache.
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws Exception {
         MyDB db = new MyDB();
-//        runSimpleBenchmark(db, 100);
-        runUserLoop(db);
+        runTest(db, 1000);
+//        runUserLoop(db);
     }
 
-    private static void runSimpleBenchmark(MyDB db, int size) throws IOException {
+    private static void runTest(MyDB db, int size) throws Exception {
         db.drop();
+        Table table = db.createTable("my-table");
 
         long t1, t2;
         t1 = System.currentTimeMillis();
         for (int i = 0; i < size; i++) {
             String s = String.valueOf(i);
-            db.put(s, s);
+            table.put(s, s);
         }
         t2 = System.currentTimeMillis();
         System.out.println("Write: " + (t2 - t1) + "ms");
 
         t1 = System.currentTimeMillis();
         for (int i = 0; i < size; i++) {
-            String s = String.valueOf(i);
-            db.get(s);
+            String k = String.valueOf(i);
+            String v = table.get(k);
+            if (!v.equals(k)) System.out.printf("Expected: %s Got: %s\n", k, v);
+        }
+        t2 = System.currentTimeMillis();
+        System.out.println("Read: " + (t2 - t1) + "ms");
+
+        t1 = System.currentTimeMillis();
+        for (int i = 0; i < size; i++) {
+            String k = String.valueOf(i);
+            table.delete(k);
+        }
+        t2 = System.currentTimeMillis();
+        System.out.println("Delete: " + (t2 - t1) + "ms");
+
+        t1 = System.currentTimeMillis();
+        for (int i = 0; i < size; i++) {
+            String k = String.valueOf(i);
+            String v = table.get(k);
+            if (!(v == null)) System.out.printf("Expected: %s Got: %s\n", null, v);
         }
         t2 = System.currentTimeMillis();
         System.out.println("Read: " + (t2 - t1) + "ms");
@@ -40,6 +59,7 @@ class Main {
 
     private static void runUserLoop(MyDB db) throws IOException {
         Console c = System.console();
+        Table t = db.getTable("user-loop");
 
         while (true) {
             String line = c.readLine(">> ");
@@ -48,19 +68,19 @@ class Main {
             if (pm.find()) {
                 String key = pm.group(1);
                 String value = pm.group(2);
-                db.put(key, value);
+                t.put(key, value);
                 found = true;
             }
             Matcher gm = GET_PATTERN.matcher(line);
             if (!found && gm.find()) {
                 String key = gm.group(1);
-                c.printf(db.get(key) + "\n");
+                c.printf(t.get(key) + "\n");
                 found = true;
             }
             Matcher dm = DELETE_PATTERN.matcher(line);
             if (!found && dm.find()) {
                 String key = dm.group(1);
-                db.delete(key);
+                t.delete(key);
                 found = true;
             }
             if (!found) {
