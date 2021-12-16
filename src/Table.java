@@ -1,5 +1,4 @@
 import java.io.IOException;
-import java.util.Iterator;
 
 public class Table {
 
@@ -18,18 +17,14 @@ public class Table {
 
     public void put(String key, String value) throws IOException {
         for (int i = 0; i < length; i++) {
-            Page p = db.getPage(offset + (key.hashCode() % MyDB.BUCKET_COUNT));
+            Page p = db.getPage(offset + (key.hashCode() & 0x7FFFFFFF) % MyDB.BUCKET_COUNT);
             if (p.canPut(key, value)) {
                 p.put(key, value);
-            } else {
-                expandTable();
-                put(key, value);
+                return;
             }
         }
-    }
-
-    private void expandTable() {
-        // TODO
+        db.expandTable(this);
+        put(key, value);
     }
 
     public String get(String key) throws IOException {
@@ -51,5 +46,21 @@ public class Table {
 
     public int getLength() {
         return length;
+    }
+
+    public void setLength(int l) {
+        length = l;
+    }
+
+    public void setOffset(int o) {
+        offset = o;
+    }
+
+    public int getOffset() {
+        return offset;
+    }
+
+    public String getName() {
+        return name;
     }
 }

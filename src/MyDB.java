@@ -56,8 +56,8 @@ class MyDB {
     }
 
     public Page getPage(int n) throws IOException {
-        if (pages.contains(n)) {
-            return pages.get(n);
+        for (Page p : pages) {
+            if (p.getPageNumber() == n) return p;
         }
         Page p = new Page(file, n);
         pages.addLast(p);
@@ -74,8 +74,7 @@ class MyDB {
     public Table createTable(String name) throws IOException {
         Table directory = getTable("tables");
         int length = 1;
-        // TODO: fix offset
-        int offset = 1;
+        int offset = allocate(length);
         String value = offset + " " + length;
         directory.put(name, value);
         Table table = new Table(this, name, offset, length);
@@ -87,4 +86,35 @@ class MyDB {
         return tables.get(name);
     }
 
+    public void expandTable(Table table) throws IOException {
+        int newLength = table.getLength() * 2;
+        System.out.println("Expanding " + table.getName() + " to " + newLength);
+        int newOffset = allocate(newLength);
+        if (newOffset != table.getOffset()) {
+            copyTableData(table, newOffset);
+            table.setOffset(newOffset);
+        }
+        table.setLength(table.getLength() * 2);
+        System.out.println("Done expanding " + table.getName());
+    }
+
+    private void copyTableData(Table table, int newOffset) throws IOException {
+        for (int i = 0; i < table.getLength(); i++) {
+            getPage(i + table.getOffset()).copyTo(getPage(i + newOffset));
+        }
+    }
+
+    private int allocate(int newLength) {
+        int lastOffset = 0;
+        int lastLength = 0;
+        for (String key : tables.keySet()) {
+            Table t = tables.get(key);
+            int offset = t.getOffset();
+            int difference = offset - lastOffset;
+            if (difference >= newLength) return lastOffset;
+            lastOffset = offset;
+            lastLength = t.getLength();
+        }
+        return lastOffset + lastLength;
+    }
 }

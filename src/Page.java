@@ -9,6 +9,9 @@ class Page {
 
     public static final Pattern KEY_VALUE_PATTERN = Pattern.compile("^\"([^\"]*)\" \"([^\"]*)\"$");
 
+    private static int pageWrites = 0;
+    private static int pageReads = 0;
+
     private final RandomAccessFile file;
     private final int pageNumber;
     private final Map<String, String> values;
@@ -23,6 +26,8 @@ class Page {
         file = f;
         pageNumber = n;
         values = new HashMap<>();
+//        System.out.println("Opening page: " + n);
+        if (n > 10) System.exit(1);
         if (autoRead) readValues();
     }
 
@@ -39,11 +44,17 @@ class Page {
         return values;
     }
 
-    private void readValues() throws IOException {
+    private byte[] readBytes() throws IOException {
+//        System.out.println("Reading page: " + pageNumber);
         byte[] bytes = new byte[MyDB.PAGE_SIZE];
         file.seek((long) MyDB.PAGE_SIZE * pageNumber);
         file.read(bytes);
-        String string = new String(bytes);
+        pageReads++;
+        return bytes;
+    }
+
+    private void readValues() throws IOException {
+        String string = new String(readBytes());
         String[] lines = string.split("\n");
         length = lines.length;
         for (String line : lines) {
@@ -62,6 +73,7 @@ class Page {
         for (String key : values.keySet()) {
             byte[] lineBytes = String.format("\"%s\" \"%s\"\n", key, values.get(key)).getBytes();
             for (byte b : lineBytes) {
+                // TODO: fix bug
                 bytes[i] = b;
                 i += 1;
             }
@@ -70,8 +82,14 @@ class Page {
             bytes[i] = 0;
             i += 1;
         }
+        writeBytes(bytes);
+    }
+
+    private void writeBytes(byte[] bytes) throws IOException {
+//        System.out.println("Writing page: " + pageNumber);
         file.seek((long) MyDB.PAGE_SIZE * pageNumber);
         file.write(bytes);
+        pageWrites++;
     }
 
     public void delete(String key) throws IOException {
@@ -81,5 +99,21 @@ class Page {
 
     public boolean canPut(String key, String value) {
         return length + key.length() + value.length() + 6 <= MyDB.PAGE_SIZE;
+    }
+
+    public void copyTo(Page p2) throws IOException {
+        p2.writeBytes(readBytes());
+    }
+
+    public int getPageNumber() {
+        return pageNumber;
+    }
+
+    public static int getPageWrites() {
+        return pageWrites;
+    }
+
+    public static int getPageReads() {
+        return pageReads;
     }
 }

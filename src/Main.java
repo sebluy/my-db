@@ -55,6 +55,8 @@ class Main {
         }
         t2 = System.currentTimeMillis();
         System.out.println("Read: " + (t2 - t1) + "ms");
+        System.out.println("Page writes: " + Page.getPageWrites());
+        System.out.println("Page reads: " + Page.getPageReads());
     }
 
     private static void runUserLoop(MyDB db) throws IOException {
