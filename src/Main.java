@@ -34,7 +34,7 @@ class Main {
         for (int i = 0; i < size; i++) {
             String k = String.valueOf(i);
             String v = table.get(k);
-            if (!v.equals(k)) System.out.printf("Expected: %s Got: %s\n", k, v);
+            if (!k.equals(v)) System.out.printf("Expected: %s Got: %s\n", k, v);
         }
         t2 = System.currentTimeMillis();
         System.out.println("Read: " + (t2 - t1) + "ms");

@@ -14,21 +14,18 @@ class Page {
 
     private final RandomAccessFile file;
     private final int pageNumber;
-    private final Map<String, String> values;
     private final byte[] bytes = new byte[MyDB.PAGE_SIZE];
+
+    private Map<String, String> values;
     private int length;
 
     Page(RandomAccessFile f, int n) throws IOException {
-        this(f, n, true);
-    }
-
-    Page(RandomAccessFile f, int n, boolean autoRead) throws IOException {
         file = f;
         pageNumber = n;
         values = new HashMap<>();
-//        System.out.println("Opening page: " + n);
-        if (n > 10) System.exit(1);
-        if (autoRead) readValues();
+        System.out.println("Opening page: " + n);
+        if (n > 100) System.exit(1);
+        readValues();
     }
 
     public void put(String key, String value) throws IOException {
@@ -70,6 +67,7 @@ class Page {
 
     public void writeValues() throws IOException {
         int i = 0;
+        length = 0;
         for (String key : values.keySet()) {
             byte[] lineBytes = String.format("\"%s\" \"%s\"\n", key, values.get(key)).getBytes();
             for (byte b : lineBytes) {
@@ -77,6 +75,7 @@ class Page {
                 bytes[i] = b;
                 i += 1;
             }
+            length += lineBytes.length;
         }
         while (i < MyDB.PAGE_SIZE) {
             bytes[i] = 0;
@@ -97,12 +96,19 @@ class Page {
         writeValues();
     }
 
+    public void clear() throws IOException {
+        values.clear();
+        writeValues();
+    }
+
     public boolean canPut(String key, String value) {
         return length + key.length() + value.length() + 6 <= MyDB.PAGE_SIZE;
     }
 
     public void copyTo(Page p2) throws IOException {
         p2.writeBytes(readBytes());
+        p2.length = this.length;
+        p2.values = this.values;
     }
 
     public int getPageNumber() {

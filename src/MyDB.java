@@ -12,10 +12,11 @@ class MyDB {
 
     private final LinkedList<Page> pages;
     private final RandomAccessFile file;
-    private Map<String, Table> tables;
+    private final Map<String, Table> tables;
 
     public MyDB() throws IOException {
         pages = new LinkedList<>();
+        tables = new HashMap<>();
         Path path = Path.of("my.db");
         System.out.println(path.toAbsolutePath());
         boolean fileExists = Files.exists(path);
@@ -26,35 +27,33 @@ class MyDB {
     }
 
     private void loadTables() throws IOException {
-        tables = new HashMap<>();
-        loadTablePage(0);
-        Table directory = tables.get("tables");
-        for (int i = 1; i < directory.getLength(); i++) {
-            loadTablePage(i);
-        }
-    }
-
-    private void loadTablePage(int n) throws IOException {
-        Page directory = getPage(n);
-        Map<String, String> values = directory.getValues();
-        for (String key : values.keySet()) {
-            String line = values.get(key);
-            Scanner s = new Scanner(line);
-            int offset = s.nextInt();
-            int length = s.nextInt();
-            Table t = new Table(this, key, offset, length);
-            tables.put(key, t);
+        // TODO: variable length tables table
+        Table tablesTable = new Table(this, "tables", 0, MyDB.BUCKET_COUNT);
+        tables.put("tables", tablesTable);
+        for (int i = tablesTable.getOffset(); i < tablesTable.getLength(); i++) {
+            Page page = getPage(i);
+            Map<String, String> values = page.getValues();
+            for (String key : values.keySet()) {
+                String line = values.get(key);
+                Scanner s = new Scanner(line);
+                int offset = s.nextInt();
+                int length = s.nextInt();
+                Table t = new Table(this, key, offset, length);
+                tables.put(key, t);
+            }
         }
     }
 
     private void initialize() throws IOException {
         System.out.println("Initializing");
-        Page tables = new Page(file, 0, false);
-        pages.addFirst(tables);
-        tables.getValues().put("tables", "0 1");
-        tables.writeValues();
+        pages.clear();
+        tables.clear();
+        allocate(MyDB.BUCKET_COUNT);
+        Table tablesTable = new Table(this, "tables", 0, MyDB.BUCKET_COUNT);
+        tables.put("tables", tablesTable);
     }
 
+    // TODO: Fix low cache hit rate for reads
     public Page getPage(int n) throws IOException {
         for (Page p : pages) {
             if (p.getPageNumber() == n) return p;
@@ -72,11 +71,11 @@ class MyDB {
     }
 
     public Table createTable(String name) throws IOException {
-        Table directory = getTable("tables");
-        int length = 1;
+        Table tablesTable = getTable("tables");
+        int length = MyDB.BUCKET_COUNT;
         int offset = allocate(length);
         String value = offset + " " + length;
-        directory.put(name, value);
+        tablesTable.put(name, value);
         Table table = new Table(this, name, offset, length);
         tables.put(name, table);
         return table;
@@ -87,13 +86,12 @@ class MyDB {
     }
 
     public void expandTable(Table table) throws IOException {
+        // TODO: Try to allocate at the end of current block if possible. Add a reallocate(Table) method.
         int newLength = table.getLength() * 2;
         System.out.println("Expanding " + table.getName() + " to " + newLength);
         int newOffset = allocate(newLength);
-        if (newOffset != table.getOffset()) {
-            copyTableData(table, newOffset);
-            table.setOffset(newOffset);
-        }
+        copyTableData(table, newOffset);
+        table.setOffset(newOffset);
         table.setLength(table.getLength() * 2);
         System.out.println("Done expanding " + table.getName());
     }
@@ -104,17 +102,18 @@ class MyDB {
         }
     }
 
-    private int allocate(int newLength) {
-        int lastOffset = 0;
-        int lastLength = 0;
-        for (String key : tables.keySet()) {
-            Table t = tables.get(key);
-            int offset = t.getOffset();
-            int difference = offset - lastOffset;
-            if (difference >= newLength) return lastOffset;
-            lastOffset = offset;
-            lastLength = t.getLength();
+    private int allocate(int newLength) throws IOException {
+        List<Table> sTables = new ArrayList<>(tables.values());
+        sTables.sort(Comparator.comparingInt(Table::getOffset));
+        int lastEnd = 0;
+        for (Table t : sTables) {
+            int start = t.getOffset();
+            if (lastEnd + newLength < start) break;
+            lastEnd = t.getOffset() + t.getLength();
         }
-        return lastOffset + lastLength;
+        for (int i = lastEnd; i < lastEnd + newLength; i++) {
+            this.getPage(i).clear();
+        }
+        return lastEnd;
     }
 }

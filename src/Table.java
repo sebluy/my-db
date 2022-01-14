@@ -4,8 +4,8 @@ public class Table {
 
     private final MyDB db;
     private final String name;
-    private int offset;
-    private int length;
+    private int offset; // Starting page offset
+    private int length; // Number of currently allocated pages
 
 
     public Table(MyDB d, String n, int o, int l) {
@@ -15,9 +15,15 @@ public class Table {
         length = l;
     }
 
+    private int bucket(String key) {
+        return key.hashCode() & 0x7FFFFFFF % MyDB.BUCKET_COUNT;
+    }
+
     public void put(String key, String value) throws IOException {
-        for (int i = 0; i < length; i++) {
-            Page p = db.getPage(offset + (key.hashCode() & 0x7FFFFFFF) % MyDB.BUCKET_COUNT);
+        System.out.printf("PUT %s %s %s\n", this.name, key, value);
+        int bucket = bucket(key);
+        for (int i = offset + bucket; i < offset + length; i += MyDB.BUCKET_COUNT) {
+            Page p = db.getPage(i);
             if (p.canPut(key, value)) {
                 p.put(key, value);
                 return;
@@ -28,8 +34,9 @@ public class Table {
     }
 
     public String get(String key) throws IOException {
-        for (int i = 0; i < length; i++) {
-            Page p = db.getPage(offset + (key.hashCode() % MyDB.BUCKET_COUNT));
+        int bucket = bucket(key);
+        for (int i = offset + bucket; i < offset + length; i += MyDB.BUCKET_COUNT) {
+            Page p = db.getPage(i);
             String value = p.get(key);
             if (value != null) return value;
         }
@@ -37,10 +44,14 @@ public class Table {
     }
 
     public void delete(String key) throws IOException {
-        for (int i = 0; i < length; i++) {
-            Page p = db.getPage(offset + (key.hashCode() % MyDB.BUCKET_COUNT));
+        int bucket = bucket(key);
+        for (int i = offset + bucket; i < offset + length; i += MyDB.BUCKET_COUNT) {
+            Page p = db.getPage(i);
             String value = p.get(key);
-            if (value != null) p.delete(key);
+            if (value != null) {
+                p.delete(key);
+                return;
+            }
         }
     }
 
