@@ -20,7 +20,7 @@ public class Table {
     }
 
     public void put(String key, String value) throws IOException {
-        System.out.printf("PUT %s %s %s\n", this.name, key, value);
+//        System.out.printf("PUT %s %s %s\n", this.name, key, value);
         int bucket = bucket(key);
         for (int i = offset + bucket; i < offset + length; i += MyDB.BUCKET_COUNT) {
             Page p = db.getPage(i);
@@ -34,6 +34,7 @@ public class Table {
     }
 
     public String get(String key) throws IOException {
+//        System.out.printf("GET %s %s\n", this.name, key);
         int bucket = bucket(key);
         for (int i = offset + bucket; i < offset + length; i += MyDB.BUCKET_COUNT) {
             Page p = db.getPage(i);
@@ -44,6 +45,7 @@ public class Table {
     }
 
     public void delete(String key) throws IOException {
+//        System.out.printf("GET %s %s\n", this.name, key);
         int bucket = bucket(key);
         for (int i = offset + bucket; i < offset + length; i += MyDB.BUCKET_COUNT) {
             Page p = db.getPage(i);

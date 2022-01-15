@@ -9,8 +9,6 @@ class Main {
     private static final Pattern GET_PATTERN = Pattern.compile("^GET \"([^\"]*)\"$");
     private static final Pattern DELETE_PATTERN = Pattern.compile("^DELETE \"([^\"]*)\"$");
 
-    // TODO: support growing pages, and flushing pages from cache.
-
     public static void main(String[] args) throws Exception {
         MyDB db = new MyDB();
         runTest(db, 1000);

@@ -23,8 +23,7 @@ class Page {
         file = f;
         pageNumber = n;
         values = new HashMap<>();
-        System.out.println("Opening page: " + n);
-        if (n > 100) System.exit(1);
+        if (n > 1000) System.exit(1);
         readValues();
     }
 

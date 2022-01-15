@@ -6,13 +6,20 @@ import java.util.*;
 
 class MyDB {
 
-    private static final int PAGE_POOL_SIZE = 10;
+    private static final int PAGE_POOL_SIZE = 32;
     public static final int PAGE_SIZE = 1024;
-    public static final int BUCKET_COUNT = 4;
+    public static final int BUCKET_COUNT = 32;
 
     private final LinkedList<Page> pages;
     private final RandomAccessFile file;
     private final Map<String, Table> tables;
+
+    // TODO: Use BTree
+    // TODO: Support transactions
+    // TODO: Multiple columns
+    // TODO: Multiple indexes
+    // TODO: Support parallel commands
+    // TODO: Distributed?
 
     public MyDB() throws IOException {
         pages = new LinkedList<>();
@@ -53,8 +60,8 @@ class MyDB {
         tables.put("tables", tablesTable);
     }
 
-    // TODO: Fix low cache hit rate for reads
     public Page getPage(int n) throws IOException {
+//        System.out.println("Page: " + n);
         for (Page p : pages) {
             if (p.getPageNumber() == n) return p;
         }
